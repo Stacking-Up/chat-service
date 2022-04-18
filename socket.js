@@ -29,8 +29,8 @@ const deploy = () => {
 
           try {
             const decoded = jwt.verify(authToken, process.env.JWT_SECRET || 'stackingupsecretlocal');
-            sendPreviousUserChats(socket, decoded.userId)
-            
+            sendPreviousUserChats(socket, decoded.userId);
+
             socket.on('join', (otherUserId) => {
               const room = [decoded.userId, otherUserId].sort().join('-');
               console.log(`User ${decoded.userId} joined room ${room}`);
@@ -81,7 +81,7 @@ const deploy = () => {
               console.error(err);
             });
         }
-        function sendPreviousUserChats(socket, userId) {
+        function sendPreviousUserChats (socket, userId) {
           Messages.find({ user: userId })
             .distinct('room')
             .then(rooms => {
