@@ -1,0 +1,15 @@
+{
+  "name": "chat-service",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "cookie": "^0.5.0",
+    "jsonwebtoken": "^8.5.1",
+    "mongoose": "^6.3.0",
+    "socket.io": "^4.4.1"
+  }
+}
