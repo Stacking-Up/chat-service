@@ -19,23 +19,23 @@ const deploy = () => {
       mongoose.connect(mongoURL).then(() => {
         const server = http.createServer().listen(socketPort);
         const socketServer = io(server);
-  
+
         socketServer.on('connection', (socket) => {
           const authToken = socket.handshake.headers.cookie ? cookie.parse(socket.handshake.headers.cookie)?.authToken : null;
           if (!authToken) {
             socket.emit('error', 'User not logged in');
             socket.disconnect();
           }
-  
+
           try {
             const decoded = jwt.verify(authToken, process.env.JWT_SECRET || 'stackingupsecretlocal');
-  
+
             socket.on('join', (otherUserId) => {
               const room = [decoded.userId, otherUserId].sort().join('-');
               console.log(`User ${decoded.userId} joined room ${room}`);
               socket.join(room);
               sendRoomMessages(socket, room);
-              
+
               socket.on('message', (msg) => {
                 const newMessage = new Messages({
                   text: msg,
@@ -43,7 +43,7 @@ const deploy = () => {
                   room: room,
                   user: decoded.userId
                 });
-      
+
                 newMessage.save()
                   .then((msg) => {
                     socketServer.to(room).emit('message', msg);
@@ -51,9 +51,9 @@ const deploy = () => {
                     console.error(err);
                   });
               });
-      
+
               socket.once('leave', () => {
-                console.log("User disconnected");
+                console.log('User disconnected');
                 socket.removeAllListeners('message');
                 socket.leave(room);
               });
@@ -68,7 +68,7 @@ const deploy = () => {
             socket.disconnect();
           }
         });
-  
+
         function sendRoomMessages (socket, room) {
           Messages.find({ room })
             .sort({ datetime: -1 })
@@ -86,7 +86,7 @@ const deploy = () => {
       reject(err);
     }
   });
-}
+};
 
 const undeploy = () => {
   process.exit();
