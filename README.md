@@ -7,6 +7,7 @@ StackingUp socket server for the chat service
 * **leave()**: Leaves current chat room.
 
 ## Client Listeners
+* **chats**: On connection, will receive a list of id's of all the users you have chatted with. 
 * **join**: Will receive all the messages from a room when successfully joined using `join(UserId)`.
 * **message**: Will receive the messages sent to the server through `message(msg)`.
 * **error**: Will receive any errors that occur.

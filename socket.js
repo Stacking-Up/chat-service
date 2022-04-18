@@ -29,7 +29,8 @@ const deploy = () => {
 
           try {
             const decoded = jwt.verify(authToken, process.env.JWT_SECRET || 'stackingupsecretlocal');
-
+            sendPreviousUserChats(socket, decoded.userId)
+            
             socket.on('join', (otherUserId) => {
               const room = [decoded.userId, otherUserId].sort().join('-');
               console.log(`User ${decoded.userId} joined room ${room}`);
@@ -63,7 +64,7 @@ const deploy = () => {
               socket.emit('error', 'Invalid credentials');
             } else {
               socket.emit('error', 'Unexpected error on chat service');
-              console.log(err.trace);
+              console.log(err);
             }
             socket.disconnect();
           }
@@ -76,6 +77,15 @@ const deploy = () => {
             .exec()
             .then((messages) => {
               socketServer.in(socket.id).emit('join', messages);
+            }).catch((err) => {
+              console.error(err);
+            });
+        }
+        function sendPreviousUserChats(socket, userId) {
+          Messages.find({ user: userId })
+            .distinct('room')
+            .then(rooms => {
+              socketServer.in(socket.id).emit('chats', rooms.map(r => parseInt(r.replace('-', '').replace(userId, '').trim())));
             }).catch((err) => {
               console.error(err);
             });
