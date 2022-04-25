@@ -17,8 +17,17 @@ const deploy = () => {
       const mongoURL = `mongodb://${mongoHost}:${mongoPort}/${mongoDBName}`;
 
       mongoose.connect(mongoURL).then(() => {
+        const domain = process.env.DNS_SUFFIX;
+        const subDomain = process.env.SERVICES_PREFIX ? `${process.env.SERVICES_PREFIX}.` : '';
+
         const server = http.createServer().listen(socketPort);
-        const socketServer = io(server);
+        const socketServer = io(server, {
+          cors: {
+            origin: [`https://${subDomain}${domain}`, 'http://localhost:3000'],
+            methods: ['GET', 'POST'],
+            credentials: true
+          }
+        });
 
         socketServer.on('connection', (socket) => {
           const authToken = socket.handshake.headers.cookie ? cookie.parse(socket.handshake.headers.cookie)?.authToken : null;
@@ -35,7 +44,29 @@ const deploy = () => {
               const room = [decoded.userId, otherUserId].sort().join('-');
               console.log(`User ${decoded.userId} joined room ${room}`);
               socket.join(room);
-              sendRoomMessages(socket, room);
+              Messages.find({ room: room })
+                .then(messages => {
+                  if (messages.length > 0) {
+                    sendRoomMessages(socket, room);
+                  } else {
+                    const newMessage = new Messages({
+                      text: 'New Chat',
+                      datetime: new Date(),
+                      room: room,
+                      user: 0
+                    });
+
+                    newMessage.save()
+                      .then((msg) => {
+                        sendRoomMessages(socket, room);
+                        sendPreviousUserChats(socket, decoded.userId);
+                      }).catch((err) => {
+                        console.error(err);
+                      });
+                  }
+                }).catch((err) => {
+                  console.error(err);
+                });
 
               socket.on('message', (msg) => {
                 const newMessage = new Messages({
@@ -82,7 +113,7 @@ const deploy = () => {
             });
         }
         function sendPreviousUserChats (socket, userId) {
-          Messages.find({ user: userId })
+          Messages.find({ room: { $regex: new RegExp(`^[\\d]+-${userId}$|^${userId}-[\\d]+$`) } })
             .distinct('room')
             .then(rooms => {
               socketServer.in(socket.id).emit('chats', rooms.map(r => parseInt(r.replace('-', '').replace(userId, '').trim())));
