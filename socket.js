@@ -94,7 +94,6 @@ const deploy = () => {
                   });
                 } else {
                   console.log(`User ${otherUserId} doesn't exist`);
-                  socket.disconnect();
                 }
               }).catch((err) => {
                 console.error(err);
