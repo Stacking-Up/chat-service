@@ -98,7 +98,7 @@ const deploy = () => {
                 }
               }).catch((err) => {
                 console.error(err);
-              })
+              });
             });
           } catch (err) {
             if (err instanceof jwt.JsonWebTokenError) {
@@ -111,7 +111,7 @@ const deploy = () => {
           }
         });
 
-        function sendRoomMessages(socket, room) {
+        function sendRoomMessages (socket, room) {
           Messages.find({ room })
             .sort({ datetime: -1 })
             .limit(200)
@@ -122,7 +122,7 @@ const deploy = () => {
               console.error(err);
             });
         }
-        function sendPreviousUserChats(socket, userId) {
+        function sendPreviousUserChats (socket, userId) {
           Messages.find({ room: { $regex: new RegExp(`^[\\d]+-${userId}$|^${userId}-[\\d]+$`) } })
             .distinct('room')
             .then(rooms => {
