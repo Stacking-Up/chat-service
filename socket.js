@@ -15,6 +15,7 @@ const deploy = () => {
       const mongoHost = process.env.MONGO_HOST ?? 'localhost';
       const mongoDBName = process.env.MONGO_DBNAME ?? 'chat-db';
       const mongoURL = `mongodb://${mongoHost}:${mongoPort}/${mongoDBName}`;
+      const pool = require('./utils/dbCon');
 
       mongoose.connect(mongoURL).then(() => {
         const domain = process.env.DNS_SUFFIX;
@@ -41,54 +42,63 @@ const deploy = () => {
             sendPreviousUserChats(socket, decoded.userId);
 
             socket.on('join', (otherUserId) => {
-              const room = [decoded.userId, otherUserId].sort().join('-');
-              console.log(`User ${decoded.userId} joined room ${room}`);
-              socket.join(room);
-              Messages.find({ room: room })
-                .then(messages => {
-                  if (messages.length > 0) {
-                    sendRoomMessages(socket, room);
-                  } else {
+              pool.query('SELECT * FROM "User" WHERE id = $1', [otherUserId]).then((result) => {
+                if (result.rows.length > 0) {
+                  const room = [decoded.userId, otherUserId].sort().join('-');
+                  console.log(`User ${decoded.userId} joined room ${room}`);
+                  socket.join(room);
+                  Messages.find({ room: room })
+                    .then(messages => {
+                      if (messages.length > 0) {
+                        sendRoomMessages(socket, room);
+                      } else {
+                        const newMessage = new Messages({
+                          text: 'New Chat',
+                          datetime: new Date(),
+                          room: room,
+                          user: 0
+                        });
+
+                        newMessage.save()
+                          .then((msg) => {
+                            sendRoomMessages(socket, room);
+                            sendPreviousUserChats(socket, decoded.userId);
+                          }).catch((err) => {
+                            console.error(err);
+                          });
+                      }
+                    }).catch((err) => {
+                      console.error(err);
+                    });
+
+                  socket.on('message', (msg) => {
                     const newMessage = new Messages({
-                      text: 'New Chat',
+                      text: msg,
                       datetime: new Date(),
                       room: room,
-                      user: 0
+                      user: decoded.userId
                     });
 
                     newMessage.save()
                       .then((msg) => {
-                        sendRoomMessages(socket, room);
-                        sendPreviousUserChats(socket, decoded.userId);
+                        socketServer.to(room).emit('message', msg);
                       }).catch((err) => {
                         console.error(err);
                       });
-                  }
-                }).catch((err) => {
-                  console.error(err);
-                });
-
-              socket.on('message', (msg) => {
-                const newMessage = new Messages({
-                  text: msg,
-                  datetime: new Date(),
-                  room: room,
-                  user: decoded.userId
-                });
-
-                newMessage.save()
-                  .then((msg) => {
-                    socketServer.to(room).emit('message', msg);
-                  }).catch((err) => {
-                    console.error(err);
                   });
-              });
 
-              socket.once('leave', () => {
-                console.log('User disconnected');
-                socket.removeAllListeners('message');
-                socket.leave(room);
-              });
+                  socket.once('leave', () => {
+                    console.log('User disconnected');
+                    socket.removeAllListeners('message');
+                    socket.leave(room);
+                  });
+                } else {
+                  console.log(`User ${otherUserId} doesn't exist`);
+                  socket.disconnect();
+                }
+              }).catch((err) => {
+                console.error(err);
+              })
             });
           } catch (err) {
             if (err instanceof jwt.JsonWebTokenError) {
@@ -101,7 +111,7 @@ const deploy = () => {
           }
         });
 
-        function sendRoomMessages (socket, room) {
+        function sendRoomMessages(socket, room) {
           Messages.find({ room })
             .sort({ datetime: -1 })
             .limit(200)
@@ -112,7 +122,7 @@ const deploy = () => {
               console.error(err);
             });
         }
-        function sendPreviousUserChats (socket, userId) {
+        function sendPreviousUserChats(socket, userId) {
           Messages.find({ room: { $regex: new RegExp(`^[\\d]+-${userId}$|^${userId}-[\\d]+$`) } })
             .distinct('room')
             .then(rooms => {
