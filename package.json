@@ -4,12 +4,18 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint": "semistandard",
+    "lint-fix": "semistandard --fix",
+    "precommit": "npm run lint-fix"
   },
   "dependencies": {
     "cookie": "^0.5.0",
     "jsonwebtoken": "^8.5.1",
     "mongoose": "^6.3.0",
+    "pg": "^8.7.3",
     "socket.io": "^4.4.1"
+  },
+  "devDependencies": {
+    "semistandard": "^16.0.1"
   }
 }
